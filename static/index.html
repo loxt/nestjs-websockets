@@ -25,9 +25,17 @@
         <input v-model="text" type="text">
         <button type="submit" @click.prevent="sendChatMessage()">Send</button>
       </form>
+      <div class="tab-row">
+        <button class="tab-btn" :class="{ active: activeRoom === 'general' }" @click="activeRoom = 'general'">General</button>
+        <button class="tab-btn" :class="{ active: activeRoom === 'typescript' }" @click="activeRoom = 'typescript'">TypeScript</button>
+        <button class="tab-btn" :class="{ active: activeRoom === 'nestjs' }" @click="activeRoom = 'nestjs'">NestJS</button>
+      </div>
+      <div class="tab-row">
+        Status: {{ isMemberOfActiveRoom ? 'Joined' : 'NOT Joined' }} <button @click="toggleRoomMembership()">{{ isMemberOfActiveRoom ? 'Leave' : 'Join' }}</button>
+      </div>
 
       <ul>
-        <li v-for="msg of messages">
+        <li v-for="msg of messages[activeRoom]">
           <strong>{{ msg.sender }}:</strong> {{ msg.message }}
         </li>
       </ul>
@@ -40,20 +48,46 @@
       data: {
         username: '',
         text: '',
-        messages: [''],
+        messages: {
+          general: [],
+          typescript: [],
+          nestjs: [],
+        },
+        rooms: {
+          general: false,
+          typescript: false,
+          nestjs: false,
+        },
         socket: { chat: null, alerts: null },
         alerts: [],
+        activeRoom: 'general',
       },
       methods: {
         sendChatMessage() {
-          this.socket.chat.emit('chatToServer', { sender: this.username, message: this.text });
+          if (this.isMemberOfActiveRoom) {
+            this.socket.chat.emit('chatToServer', { sender: this.username, room: this.activeRoom, message: this.text });
+          } else {
+            alert('You must be a member of the active room to send messages!');
+          }
           this.text = '';
         },
         receiveChatMessage(msg) {
-          this.messages.push(msg);
+          this.messages[msg.room].push(msg);
         },
         receiveAlertMessage(msg) {
           this.alerts.push(msg);
+        },
+        toggleRoomMembership() {
+          if (this.isMemberOfActiveRoom) {
+            this.socket.chat.emit('leaveRoom', this.activeRoom);
+          } else {
+            this.socket.chat.emit('joinRoom', this.activeRoom);
+          }
+        }
+      },
+      computed: {
+        isMemberOfActiveRoom() {
+          return this.rooms[this.activeRoom];
         }
       },
       created() {
@@ -62,6 +96,18 @@
         this.socket.chat.on('chatToClient', (msg) => {
           this.receiveChatMessage(msg);
         });
+
+        this.socket.chat.on('connect', () => {
+          this.toggleRoomMembership();
+        });
+
+        this.socket.chat.on('joinedRoom', () => {
+          this.rooms[this.activeRoom] = true;
+        })
+
+        this.socket.chat.on('leftRoom', () => {
+          this.rooms[this.activeRoom] = false;
+        })
 
         this.socket.alerts = io('http://localhost:8080/alert');
         this.socket.alerts.on('alertToClient', (msg) => {
