@@ -5,12 +5,15 @@ import {
   SubscribeMessage,
   WebSocketGateway,
   WebSocketServer,
-  WsResponse,
 } from '@nestjs/websockets';
 import { Logger } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
 
-@WebSocketGateway()
+@WebSocketGateway(8081, {
+  path: '/websockets',
+  serveClient: true,
+  namespace: '/',
+})
 export class AppGateway
   implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer() wss: Server;
@@ -21,11 +24,11 @@ export class AppGateway
   }
 
   handleConnection(client: Socket, ...args: any[]): any {
-    this.logger.error(`Method not implemented: ${client.id}`);
+    this.logger.error(`Client connected: ${client.id}`);
   }
 
   handleDisconnect(client: Socket): any {
-    this.logger.error(`Method not implemented: ${client.id}`);
+    this.logger.error(`Client disconnected: ${client.id}`);
   }
 
   @SubscribeMessage('msgToServer')
